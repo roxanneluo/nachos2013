@@ -32,9 +32,16 @@ public class Condition2 {
 	 */
 	public void sleep() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
-
+		Lib.assertTrue(Machine.interrupt().enabled());
+		
+		//boolean intStatus = Machine.interrupt().disable();
+		Machine.interrupt().disable();
 		conditionLock.release();
-
+		sleptQueue.waitForAccess(KThread.currentThread());
+		KThread.sleep();
+		
+		//Machine.interrupt().restore(intStatus);
+		Machine.interrupt().enable();
 		conditionLock.acquire();
 	}
 
@@ -44,6 +51,15 @@ public class Condition2 {
 	 */
 	public void wake() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+		Lib.assertTrue(Machine.interrupt().enabled());
+		
+		//boolean intStatus = Machine.interrupt().disable();
+		Machine.interrupt().disable();
+		KThread nextThread = sleptQueue.nextThread();
+		if (nextThread != null)
+			nextThread.ready();
+		Machine.interrupt().enable();
+		//Machine.interrupt().restore(intStatus);
 	}
 
 	/**
@@ -52,7 +68,18 @@ public class Condition2 {
 	 */
 	public void wakeAll() {
 		Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+		Lib.assertTrue(Machine.interrupt().enabled());
+		
+		Machine.interrupt().disable();
+		
+		KThread nextThread;
+		while((nextThread = sleptQueue.nextThread()) != null) {
+			nextThread.ready();
+		}
+		
+		Machine.interrupt().enable();
 	}
 
 	private Lock conditionLock;
+	private ThreadQueue sleptQueue = ThreadedKernel.scheduler.newThreadQueue(true);
 }

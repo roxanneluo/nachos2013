@@ -167,7 +167,7 @@ public final class TCB {
 
 		TCB previous = currentTCB;
 		previous.running = false;
-
+		
 		this.interrupt();
 		previous.yield();
 	}

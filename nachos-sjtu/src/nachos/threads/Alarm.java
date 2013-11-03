@@ -1,6 +1,9 @@
 package nachos.threads;
 
+import java.util.TreeSet;
+
 import nachos.machine.*;
+
 
 /**
  * Uses the hardware timer to provide preemption, and to allow threads to sleep
@@ -29,7 +32,20 @@ public class Alarm {
 	 * should be run.
 	 */
 	public void timerInterrupt() {
-		KThread.yield();
+		lock.acquire();
+		if (waitingQueue.isEmpty() || waitingQueue.first().time > Machine.timer().getTime())
+			KThread.yield();
+		else {
+			WaitingThread pair;
+			while (!waitingQueue.isEmpty() && waitingQueue.first().time <= Machine.timer().getTime()) {
+				pair = waitingQueue.first();
+				pair.thread.ready();
+				waitingQueue.remove(pair);
+				//System.out.println("wake up "+" "+pair.time+" at "+Machine.timer().getTime());
+			}
+			KThread.yield();
+		}
+		lock.release();
 	}
 
 	/**
@@ -48,7 +64,31 @@ public class Alarm {
 	public void waitUntil(long x) {
 		// for now, cheat just to get something working (busy waiting is bad)
 		long wakeTime = Machine.timer().getTime() + x;
-		while (wakeTime > Machine.timer().getTime())
-			KThread.yield();
+//		while (wakeTime > Machine.timer().getTime())
+//			KThread.yield();
+		
+		Lib.assertTrue(Machine.interrupt().enabled());
+		
+		Machine.interrupt().disable();
+		waitingQueue.add(new WaitingThread(wakeTime, KThread.currentThread()));
+		//System.out.println("to sleep:"+wakeTime);
+		KThread.sleep();
+		Machine.interrupt().enable();		
 	}
+	class WaitingThread implements Comparable<WaitingThread> {
+		long time;
+		KThread thread;
+		
+		WaitingThread(long t, KThread th) {
+			time = t; thread = th;
+		}
+		
+		public int compareTo(WaitingThread wt) {
+			if (time < wt.time) return -1;
+			if (time > wt.time) return 1;
+			return 0;
+		}
+	}
+	TreeSet<WaitingThread> waitingQueue = new TreeSet<WaitingThread>();
+	Lock lock = new Lock();
 }

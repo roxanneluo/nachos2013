@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.*;
 
 /**
  * A KThread is a thread that can be used to execute Nachos kernel code. Nachos
@@ -204,7 +205,12 @@ public class KThread {
 		toBeDestroyed = currentThread;
 
 		currentThread.status = statusFinished;
-
+		
+		if (currentThread.joinWaitingQueue != null) {
+			KThread joinTo = currentThread.joinWaitingQueue.nextThread();
+			joinTo.ready();
+		}
+		
 		sleep();
 	}
 
@@ -286,6 +292,19 @@ public class KThread {
 		Lib.debug(dbgThread, "Joining to thread: " + toString());
 
 		Lib.assertTrue(this != currentThread);
+		
+		Lib.assertTrue(joinWaitingQueue == null);
+		
+		if (status == statusFinished) return;
+		boolean intStatus = Machine.interrupt().disable();
+		joinWaitingQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+		
+		joinWaitingQueue.acquire(this);
+		joinWaitingQueue.waitForAccess(currentThread);
+		
+		sleep();
+		
+		Machine.interrupt().restore(intStatus);
 
 	}
 
@@ -357,7 +376,7 @@ public class KThread {
 				+ " to: " + toString());
 
 		currentThread = this;
-
+		
 		tcb.contextSwitch();
 
 		currentThread.restoreState();
@@ -441,7 +460,7 @@ public class KThread {
 	 * the ready queue and not running).
 	 */
 	private int status = statusNew;
-	private String name = "(unnamed thread)";
+	public String name = "(unnamed thread)";
 	private Runnable target;
 	private TCB tcb;
 
@@ -457,4 +476,5 @@ public class KThread {
 	private static KThread currentThread = null;
 	private static KThread toBeDestroyed = null;
 	private static KThread idleThread = null;
+	private ThreadQueue joinWaitingQueue = null;
 }
