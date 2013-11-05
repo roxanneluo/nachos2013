@@ -32,7 +32,8 @@ public class Alarm {
 	 * should be run.
 	 */
 	public void timerInterrupt() {
-		lock.acquire();
+		//lock.acquire();??
+		boolean intStatus = Machine.interrupt().disable();
 		if (waitingQueue.isEmpty() || waitingQueue.first().time > Machine.timer().getTime())
 			KThread.yield();
 		else {
@@ -45,7 +46,8 @@ public class Alarm {
 			}
 			KThread.yield();
 		}
-		lock.release();
+		Machine.interrupt().restore(intStatus);
+		//lock.release();
 	}
 
 	/**
@@ -90,5 +92,5 @@ public class Alarm {
 		}
 	}
 	TreeSet<WaitingThread> waitingQueue = new TreeSet<WaitingThread>();
-	Lock lock = new Lock();
+	//Lock lock = new Lock();
 }

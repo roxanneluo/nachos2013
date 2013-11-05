@@ -74,7 +74,7 @@ public class BoatGrader extends BasicTestGrader {
 				"no children in Oahu,invalid operation ChildRowToMolokai");
 		childrenOahu--;
 		childrenMolokai++;
-		// System.out.println("**Child rowing to Molokai.");
+		System.out.println("**Child rowing to Molokai.");
 	}
 
 	/*
@@ -87,7 +87,7 @@ public class BoatGrader extends BasicTestGrader {
 				"no children in Oahu , invalid operation ChildRowToOahu");
 		childrenOahu++;
 		childrenMolokai--;
-		// System.out.println("**Child rowing to Oahu.");
+		System.out.println("**Child rowing to Oahu.");
 	}
 
 	/*
@@ -100,7 +100,7 @@ public class BoatGrader extends BasicTestGrader {
 				"no children in Molokai , invalid operation ChildRideToMolokai");
 		childrenOahu--;
 		childrenMolokai++;
-		// System.out.println("**Child arrived on Molokai as a passenger.");
+		System.out.println("**Child arrived on Molokai as a passenger.");
 	}
 
 	/*
@@ -113,7 +113,7 @@ public class BoatGrader extends BasicTestGrader {
 				"no children in Molokai, invalid operation ChildRideToOahu");
 		childrenOahu++;
 		childrenMolokai--;
-		// System.out.println("**Child arrived on Oahu as a passenger.");
+		System.out.println("**Child arrived on Oahu as a passenger.");
 	}
 
 	/*
@@ -126,7 +126,7 @@ public class BoatGrader extends BasicTestGrader {
 				" no adult in Oahu , invalid operation AdultRowToMolokai");
 		adultsOahu--;
 		adultsMolokai++;
-		// System.out.println("**Adult rowing to Molokai.");
+		System.out.println("**Adult rowing to Molokai.");
 	}
 
 	/*
@@ -139,7 +139,7 @@ public class BoatGrader extends BasicTestGrader {
 				"no adult in Molokai , invalid operation AdultRowToOahu");
 		adultsOahu++;
 		adultsMolokai--;
-		// System.out.println("**Adult rowing to Oahu.");
+		System.out.println("**Adult rowing to Oahu.");
 	}
 
 	/*
@@ -148,7 +148,7 @@ public class BoatGrader extends BasicTestGrader {
 	 */
 	public void AdultRideToMolokai() {
 		Lib.assertNotReached("invalid operation AdultRideToMolokai");
-		// System.out.println("**Adult arrived on Molokai as a passenger.");
+		System.out.println("**Adult arrived on Molokai as a passenger.");
 	}
 
 	@Override
@@ -167,7 +167,7 @@ public class BoatGrader extends BasicTestGrader {
 	 */
 	public void AdultRideToOahu() {
 		Lib.assertNotReached("invalid operation AdultRideToOahu");
-		// System.out.println("**Adult arrived on Oahu as a passenger.");
+		System.out.println("**Adult arrived on Oahu as a passenger.");
 	}
 
 	@Override

@@ -36,9 +36,12 @@ public class Lock {
 		KThread thread = KThread.currentThread();
 
 		if (lockHolder != null) {
+//			System.out.println(KThread.currentThread().getName()+" wait for "
+//								+waitQueue);
 			waitQueue.waitForAccess(thread);
 			KThread.sleep();
 		} else {
+//			System.out.println(KThread.currentThread().getName()+" acquire "+waitQueue);
 			waitQueue.acquire(thread);
 			lockHolder = thread;
 		}
@@ -56,9 +59,10 @@ public class Lock {
 
 		boolean intStatus = Machine.interrupt().disable();
 
+//		System.out.println(KThread.currentThread().getName()+" release "+waitQueue);
 		if ((lockHolder = waitQueue.nextThread()) != null)
 			lockHolder.ready();
-
+//		System.out.println(lockHolder+" is the nextThread of "+waitQueue);
 		Machine.interrupt().restore(intStatus);
 	}
 

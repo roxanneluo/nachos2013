@@ -1,9 +1,8 @@
 package nachos.threads;
 
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.TreeSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Set;
 
 import nachos.machine.Lib;
@@ -81,9 +80,9 @@ public class PriorityScheduler extends Scheduler {
 		  Machine.interrupt().restore(intStatus); // bug identified by Xiao Jia @ 2011-11-04
 			return false;
 		}
-		
+
 		setPriority(thread, priority + 1);
-		
+
 		Machine.interrupt().restore(intStatus);
 		return true;
 	}
@@ -106,7 +105,6 @@ public class PriorityScheduler extends Scheduler {
 		Machine.interrupt().restore(intStatus);
 		return true;
 	}
-	
 
 	/**
 	 * The default priority for a new thread. Do not change this value.
@@ -135,118 +133,129 @@ public class PriorityScheduler extends Scheduler {
 		return (ThreadState) thread.schedulingState;
 	}
 
-	
 	/**
 	 * A <tt>ThreadQueue</tt> that sorts threads by priority.
 	 */
 	public class PriorityQueue extends ThreadQueue {
 		PriorityQueue(boolean transferPriority) {
 			this.transferPriority = transferPriority;
+//			if (transferPriority) dirty = true;
+//			else dirty = false;
 		}
 
 		public void waitForAccess(KThread thread) {
 			Lib.assertTrue(Machine.interrupt().disabled());
-			if (waitQueue.contains(thread)) return;
-			int oldOwnerEp = -1;
-			if (owner != null) {
-				Lib.assertTrue(transferPriority);
-				oldOwnerEp = getThreadState(owner).getEffectivePriority();
-			}
-			
 			getThreadState(thread).waitForAccess(this);
-			timeTable.put(thread, Machine.timer().getTime());
-//			System.out.println("=================in waitFor time of "+thread.getName()
-//						+" is "+timeTable.get(thread)+"===================");
-			waitQueue.add(thread);
-//			if (thread.getName() == "testThread #7") 
-//				System.out.println("============"+thread.getName()+" waits for "+this+" at time:"+timeTable.get(thread)+"===============");
 			
-			if (owner != null) {
-				updatePriority(owner, oldOwnerEp);
-				if (owner == thread)
-					owner = null;
-			}
+			if (owner == thread)
+				changeOwner(null);
+			if (queue.contains(thread)) return; //??
+			queue.add(thread);
+//			dirty = transferPriority? true: false;
+			//System.out.println(this+" dirty = "+dirty);
 		}
 
 		public void acquire(KThread thread) {
 			Lib.assertTrue(Machine.interrupt().disabled());
-			
-			if (owner == thread) return;
-			KThread prevOwner = owner;
-			int oldThreadPriority = getThreadState(thread).getEffectivePriority();
-			int oldOwnerPriority = prevOwner != null? getThreadState(prevOwner).getEffectivePriority():priorityMinimum-1;
-			
-			if (prevOwner != null)
-				getThreadState(prevOwner).release(this);
+			changeOwner(thread);
 			getThreadState(thread).acquire(this);
-			waitQueue.remove(thread);
-			timeTable.remove(thread);
 			
-			if (transferPriority)
+			Iterator<KThread> iter = queue.iterator();
+			KThread same;
+			while (iter.hasNext()) {
+				same = iter.next();
+				if (same == thread) {
+					iter.remove();
+					return;
+				}
+			}
+		}
+		private void changeOwner(KThread thread) {
+			if (transferPriority) {
+				if (owner != null)
+					getThreadState(owner).release(this);
 				owner = thread;
-			
-			updatePriority(prevOwner, oldOwnerPriority);
-			updatePriority(thread, oldThreadPriority);
+				//print();
+			}
 		}
 
 		public KThread nextThread() {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			// implement me
-			//print();
-			KThread prevOwner = owner;
-			if (prevOwner != null)
-				getThreadState(prevOwner).release(this);
+			if (queue.isEmpty()) return null;
 			
-			if (waitQueue.isEmpty()) return owner = null;
-			
-			KThread next = pickNextThread().thread;
-			int oldOwnerEp = prevOwner!=null? getThreadState(prevOwner).getEffectivePriority():-1;
-			int oldNextEp = getThreadState(next).getEffectivePriority();
-			
-			waitQueue.remove(next);
-//			System.out.println("next = "+next.getName());
-//			System.out.println("contains "+next.getName()+"? "+waitQueue.contains(next));
-			timeTable.remove(next);
+			int maxPriority = PriorityScheduler.priorityMinimum-1,threadPriority;
+			int sndPriority = PriorityScheduler.priorityMinimum;
+			KThread next = null;
+			for (KThread thread:queue) {
+				threadPriority = getThreadState(thread).getEffectivePriority();
+				if (threadPriority >= maxPriority) {
+					sndPriority = maxPriority;
+					if (threadPriority > maxPriority) {
+						next = thread;
+						maxPriority = threadPriority;
+					}
+				}
+			}
+			queue.remove(next);
 			getThreadState(next).acquire(this);
-		
-			if (transferPriority)
-				owner = next;
+			changeOwner(next);
 			
-			updatePriority(next, oldNextEp);
-			updatePriority(prevOwner, oldOwnerEp);
+//			if (transferPriority) {
+////				dirty = false;
+//				effectivePriority = Math.max(sndPriority, PriorityScheduler.priorityMinimum);
+//			}
+			
 			return next;
-		}
-		
-		private void updatePriority(KThread thread, int oldEp) {
-			if (thread == null) return;
-			getThreadState(thread).updatePriority(oldEp);
-			//print();
 		}
 
 		/**
-			getThreadState
 		 * Return the next thread that <tt>nextThread()</tt> would return,
 		 * without modifying the state of this queue.
 		 * 
 		 * @return the next thread that <tt>nextThread()</tt> would return.
 		 */
 		protected ThreadState pickNextThread() {
-			if (waitQueue.isEmpty()) return null;
-			return getThreadState(waitQueue.first());
+			if (queue.isEmpty()) return null;
+			
+			int maxPriority = PriorityScheduler.priorityMinimum-1,threadPriority;
+			KThread nextThread = null;
+			for (KThread thread:queue) {
+				threadPriority = getThreadState(thread).getEffectivePriority();
+				if (threadPriority > maxPriority) {
+					nextThread = thread;
+					maxPriority = threadPriority;
+				}
+			}
+			
+//			if (dirty) {
+////				dirty = false;
+//				effectivePriority = maxPriority;
+//			}
+			return getThreadState(nextThread);
 		}
-		
+		private int getEffectivePriority() {
+			Lib.assertTrue(Machine.interrupt().disabled());
+//			if (!dirty) return effectivePriority;
+			for (KThread thread:queue)
+				effectivePriority = Math.max(effectivePriority, getThreadState(thread).getEffectivePriority());
+			//System.out.println("Before get ep");
+			//print();
+//			dirty = false;
+			//System.out.println(this+" after get ep and set dirty to false");
+			return effectivePriority;
+		}
 		public void print() {
 			Lib.assertTrue(Machine.interrupt().disabled());
 			// implement me (if you want)
-			System.out.println("--------start-"+toString()+"----"
+			System.out.println("--------start-"+toString()+"-"
 					+(owner == null? "null":owner.getName())
-					+"transfer:"+transferPriority+"--------");
-			for (KThread thread: waitQueue){
+					+"-d:"+dirty+" ep:"+effectivePriority+"transfer:"+transferPriority+"--------");
+			for (KThread thread: queue){
 				ThreadState state = getThreadState(thread);
 				System.out.println(thread.name
 						+", p:"+state.priority
 						+", ep:"+state.getEffectivePriority()
-						+", time:"+timeTable.get(thread)
 						+", owning:"+state.owning);
 			}
 			System.out.println("--------end--------");
@@ -258,30 +267,9 @@ public class PriorityScheduler extends Scheduler {
 		 * threads to the owning thread.
 		 */
 		public boolean transferPriority;
-		public TreeSet<KThread> waitQueue = new TreeSet<KThread> (
-				new Comparator<KThread>() {
-					public int compare(KThread a, KThread b) {
-						Long timea = timeTable.get(a);
-						Long timeb = timeTable.get(b);
-//						if (a.getName() == "testThread #28" || b.getName() == "testThread #28")
-//							System.out.println("when compare "+a+" to "+b+", timea = "+timea+" timeb = "+timeb);
-						if (timea == null || timeb == null) return 1;
-						int epa = getThreadState(a).getEffectivePriority();
-						int epb = getThreadState(b).getEffectivePriority();
-						if (epa > epb) return -1;
-						if (epa < epb) return 1;
-						//compare in contains
-						/*if (timea == null || timeb == null) {
-							System.out.println(timea+" "+timeb);
-							return a.compareTo(b);
-						}
-						*/
-						if (timea < timeb) return -1;
-						if (timea > timeb) return 1;
-						return a.compareTo(b);
-					}
-				});
-		public HashMap<KThread, Long> timeTable = new HashMap<KThread, Long>(); 
+		private LinkedList<KThread> queue = new LinkedList<KThread>();
+		private boolean dirty;
+		private int effectivePriority = PriorityScheduler.priorityMinimum;
 		private KThread owner = null;
 	}
 
@@ -302,8 +290,7 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public ThreadState(KThread thread) {
 			this.thread = thread;
-			effectivePriority = priorityDefault;
-			
+
 			setPriority(priorityDefault);
 		}
 
@@ -323,15 +310,12 @@ public class PriorityScheduler extends Scheduler {
 		 */
 		public int getEffectivePriority() {
 			// implement me
-			return effectivePriority;
-			/*effectivePriority = priority;
+			int maxPriority = priority;
 			for (PriorityQueue queue: owning) {
 				Lib.assertTrue(queue.transferPriority);
-				if (queue.waitQueue.isEmpty()) continue;
-				effectivePriority = Math.max(effectivePriority, 
-						getThreadState(queue.waitQueue.first()).getEffectivePriority());
+				maxPriority = Math.max(maxPriority, queue.getEffectivePriority());
 			}
-			return effectivePriority;*/
+			return maxPriority;
 		}
 
 		/**
@@ -340,15 +324,16 @@ public class PriorityScheduler extends Scheduler {
 		 * @param priority
 		 *            the new priority.
 		 */
-		public void setPriority(int pr) {
-//			System.out.println("set "+thread.getName()+" from "+priority+" to "+pr);
-			if (priority == pr)
+		public void setPriority(int priority) {
+			if (this.priority == priority)
 				return;
-			
-			int oldEp = effectivePriority;
-			this.priority = pr;
-			updatePriority(oldEp);
+
+			this.priority = priority;
+
 			// implement me
+//			for (PriorityQueue queue:waiting) 
+//				if (queue.transferPriority)
+//					queue.dirty = true;
 		}
 
 		/**
@@ -364,7 +349,6 @@ public class PriorityScheduler extends Scheduler {
 		 * @see nachos.threads.ThreadQueue#waitForAccess
 		 */
 		public void waitForAccess(PriorityQueue waitQueue) {
-//			if (waitQueue.transferPriority)
 			waiting.add(waitQueue);
 			owning.remove(waitQueue);
 		}
@@ -384,62 +368,19 @@ public class PriorityScheduler extends Scheduler {
 			if (waitQueue.transferPriority) 
 				owning.add(waitQueue);
 			waiting.remove(waitQueue);
-			//System.out.println(thread+" owns "+owning);
+			
 		}
 		
 		private void release(PriorityQueue waitQueue) {
 			owning.remove(waitQueue);
 		}
-		
-		private int calcDirectEffectivePriority() {
-			int ep = priority;
-			ThreadState next = null;
-			for (PriorityQueue queue: owning) {
-				Lib.assertTrue(queue.transferPriority);
-				next = queue.pickNextThread();
-				if (next != null)
-					ep = Math.max(ep, next.getEffectivePriority());
-			}
-			return ep;
-		}
-		
-		protected void updatePriority(int oldEp) {
-			int newEp = calcDirectEffectivePriority();
-			if (newEp == oldEp) return;
-			
-			for (PriorityQueue queue:waiting) {
-				queue.waitQueue.remove(thread);
-//				System.out.println(queue.waitQueue+" contains "+thread
-//									+"? "+queue.waitQueue.contains(thread));
-			}
-			effectivePriority = newEp;
-			for (PriorityQueue queue:waiting)
-				queue.waitQueue.add(thread);
-			
-			ThreadState ownerState = null;
-			int oldOwnerEp;
-			for (PriorityQueue queue: waiting) {	/*			
-				queue.waitQueue.remove(thread);
-				System.out.println("in update "+queue.waitQueue+" contains "+thread+"? "+queue.waitQueue.contains(thread));
-				queue.waitQueue.add(thread);*/
-				//System.out.println("update "+thread.getName());
-				
-				if (!queue.transferPriority || queue.owner == null) continue;
-				ownerState = getThreadState(queue.owner);
-				oldOwnerEp = ownerState.getEffectivePriority();
-				ownerState.updatePriority(oldOwnerEp);
-			}
-		}
 		/** The thread with which this object is associated. */
 		protected KThread thread;
 		/** The priority of the associated thread. */
 		protected int priority;
-		protected int effectivePriority = priorityMinimum-1;
+		protected int effectivePriority;
 		
-		
-		//only owns queues who transferPriority
 		public Set<PriorityQueue> owning = new HashSet<PriorityQueue>();
 		private Set<PriorityQueue> waiting = new HashSet<PriorityQueue>();
 	}
-	
 }

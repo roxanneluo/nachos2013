@@ -434,7 +434,6 @@ public class PriorityScheduler extends Scheduler {
 		protected KThread thread;
 		/** The priority of the associated thread. */
 		protected int priority;
-		protected int effectivePriority = priorityMinimum-1;
 		
 		
 		//only owns queues who transferPriority

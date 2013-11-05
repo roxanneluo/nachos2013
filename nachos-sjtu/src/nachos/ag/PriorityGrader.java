@@ -63,7 +63,7 @@ public class PriorityGrader extends BasicTestGrader {
 			handlers.clear();
 			timeMap.clear();
 		}
-		System.out.println("haha");
+		//System.out.println("haha");
 		done();
 	}
 
