@@ -146,12 +146,12 @@ public class PriorityScheduler extends Scheduler {
 
 		public void waitForAccess(KThread thread) {
 			Lib.assertTrue(Machine.interrupt().disabled());
-			if (waitQueue.contains(thread)) return;
-			int oldOwnerEp = -1;
-			if (owner != null) {
-				Lib.assertTrue(transferPriority);
-				oldOwnerEp = getThreadState(owner).getEffectivePriority();
-			}
+			if (timeTable.containsKey(thread)) return;
+//			int oldOwnerEp = -1;
+//			if (owner != null) {
+//				Lib.assertTrue(transferPriority);
+//				oldOwnerEp = getThreadState(owner).getEffectivePriority();
+//			}
 			
 			getThreadState(thread).waitForAccess(this);
 			timeTable.put(thread, Machine.timer().getTime());
@@ -162,7 +162,7 @@ public class PriorityScheduler extends Scheduler {
 //				System.out.println("============"+thread.getName()+" waits for "+this+" at time:"+timeTable.get(thread)+"===============");
 			
 			if (owner != null) {
-				updatePriority(owner, oldOwnerEp);
+				updatePriority(owner/*, oldOwnerEp*/);
 				if (owner == thread)
 					owner = null;
 			}
@@ -173,8 +173,8 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (owner == thread) return;
 			KThread prevOwner = owner;
-			int oldThreadPriority = getThreadState(thread).getEffectivePriority();
-			int oldOwnerPriority = prevOwner != null? getThreadState(prevOwner).getEffectivePriority():priorityMinimum-1;
+//			int oldThreadPriority = getThreadState(thread).getEffectivePriority();
+//			int oldOwnerPriority = prevOwner != null? getThreadState(prevOwner).getEffectivePriority():priorityMinimum-1;
 			
 			if (prevOwner != null)
 				getThreadState(prevOwner).release(this);
@@ -185,23 +185,22 @@ public class PriorityScheduler extends Scheduler {
 			if (transferPriority)
 				owner = thread;
 			
-			updatePriority(prevOwner, oldOwnerPriority);
-			updatePriority(thread, oldThreadPriority);
+			updatePriority(prevOwner);
+			updatePriority(thread);
 		}
 
-		public KThread nextThread() {
-			Lib.assertTrue(Machine.interrupt().disabled());
-			// implement me
-			//print();
+		protected KThread updateUsingNext(KThread next) {
 			KThread prevOwner = owner;
-			if (prevOwner != null)
+			if (prevOwner != null) {
 				getThreadState(prevOwner).release(this);
+				if (transferPriority)
+					updatePriority(prevOwner);
+			}
 			
-			if (waitQueue.isEmpty()) return owner = null;
+			if (next == null) return owner = null;
 			
-			KThread next = pickNextThread().thread;
-			int oldOwnerEp = prevOwner!=null? getThreadState(prevOwner).getEffectivePriority():-1;
-			int oldNextEp = getThreadState(next).getEffectivePriority();
+//			int oldOwnerEp = prevOwner!=null? getThreadState(prevOwner).getEffectivePriority():-1;
+//			int oldNextEp = getThreadState(next).getEffectivePriority();
 			
 			waitQueue.remove(next);
 //			System.out.println("next = "+next.getName());
@@ -212,14 +211,22 @@ public class PriorityScheduler extends Scheduler {
 			if (transferPriority)
 				owner = next;
 			
-			updatePriority(next, oldNextEp);
-			updatePriority(prevOwner, oldOwnerEp);
+			updatePriority(next);
+//			updatePriority(prevOwner);
 			return next;
 		}
+		public KThread nextThread() {
+			Lib.assertTrue(Machine.interrupt().disabled());
+			// implement me
+			//print();
+			ThreadState nextState = pickNextThread();
+			KThread next = nextState == null? null:nextState.thread;
+			return updateUsingNext(next);			
+		}
 		
-		private void updatePriority(KThread thread, int oldEp) {
+		private void updatePriority(KThread thread) {
 			if (thread == null) return;
-			getThreadState(thread).updatePriority(oldEp);
+			getThreadState(thread).updatePriority();
 			//print();
 		}
 
@@ -230,7 +237,7 @@ public class PriorityScheduler extends Scheduler {
 		 * 
 		 * @return the next thread that <tt>nextThread()</tt> would return.
 		 */
-		protected ThreadState pickNextThread() {
+		public ThreadState pickNextThread() {
 			if (waitQueue.isEmpty()) return null;
 			return getThreadState(waitQueue.first());
 		}
@@ -281,8 +288,8 @@ public class PriorityScheduler extends Scheduler {
 						return a.compareTo(b);
 					}
 				});
-		public HashMap<KThread, Long> timeTable = new HashMap<KThread, Long>(); 
-		private KThread owner = null;
+		protected HashMap<KThread, Long> timeTable = new HashMap<KThread, Long>(); 
+		protected KThread owner = null;
 	}
 
 	/**
@@ -345,9 +352,9 @@ public class PriorityScheduler extends Scheduler {
 			if (priority == pr)
 				return;
 			
-			int oldEp = effectivePriority;
+//			int oldEp = effectivePriority;
 			this.priority = pr;
-			updatePriority(oldEp);
+			updatePriority(/*oldEp*/);
 			// implement me
 		}
 
@@ -403,7 +410,8 @@ public class PriorityScheduler extends Scheduler {
 			return ep;
 		}
 		
-		protected void updatePriority(int oldEp) {
+		protected void updatePriority() {
+			int oldEp = effectivePriority;
 			int newEp = calcDirectEffectivePriority();
 			if (newEp == oldEp) return;
 			
@@ -426,8 +434,8 @@ public class PriorityScheduler extends Scheduler {
 				
 				if (!queue.transferPriority || queue.owner == null) continue;
 				ownerState = getThreadState(queue.owner);
-				oldOwnerEp = ownerState.getEffectivePriority();
-				ownerState.updatePriority(oldOwnerEp);
+//				oldOwnerEp = ownerState.getEffectivePriority();
+				ownerState.updatePriority(/*oldOwnerEp*/);
 			}
 		}
 		/** The thread with which this object is associated. */
@@ -438,8 +446,8 @@ public class PriorityScheduler extends Scheduler {
 		
 		
 		//only owns queues who transferPriority
-		public Set<PriorityQueue> owning = new HashSet<PriorityQueue>();
-		private Set<PriorityQueue> waiting = new HashSet<PriorityQueue>();
+		protected Set<PriorityQueue> owning = new HashSet<PriorityQueue>();
+		protected Set<PriorityQueue> waiting = new HashSet<PriorityQueue>();
 	}
 	
 }

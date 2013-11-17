@@ -1,5 +1,8 @@
 package nachos.userprog;
 
+import java.util.HashSet;
+import java.util.Iterator;
+
 import nachos.machine.*;
 import nachos.threads.*;
 
@@ -23,6 +26,14 @@ public class UserKernel extends ThreadedKernel {
 
 		console = new SynchConsole(Machine.console());
 
+		//pageTable
+		phyPageTableLock = new Lock();
+		int totalPageNum = Machine.processor().getNumPhysPages();
+		for (int i = 0; i < totalPageNum; ++i) 
+			freePages.add(i);
+		
+		runningProcessesLock = new Lock();
+		
 		Machine.processor().setExceptionHandler(new Runnable() {
 			public void run() {
 				exceptionHandler();
@@ -106,8 +117,59 @@ public class UserKernel extends ThreadedKernel {
 	public void terminate() {
 		super.terminate();
 	}
+	
+	public static int nextFreePage() {
+		int ppn;
+		phyPageTableLock.acquire();
+		if (freePages.isEmpty()) 
+			ppn = -1;
+		else {
+			Iterator<Integer> iter = freePages.iterator();
+			ppn = iter.next().intValue();
+			iter.remove();
+		}
+		phyPageTableLock.release();
+		return ppn;
+	}
+	
+	public static boolean freePage(int ppn) {
+		if (ppn < 0 || ppn > Machine.processor().getNumPhysPages())
+			return false;
+		phyPageTableLock.acquire();
+		if (freePages.contains(ppn)) {
+			phyPageTableLock.release();
+			return false;
+		}
+		freePages.add(ppn);
+		phyPageTableLock.release();
+		return true;
+	}
+	
+	public static void addRunningProcess() {
+		runningProcessesLock.acquire();
+		++runningProcesses;
+		runningProcessesLock.release();
+	}
+	public static void removeRunningProcesses() {
+		runningProcessesLock.acquire();
+		--runningProcesses;
+		Lib.assertTrue(runningProcesses>=0);
+		runningProcessesLock.release();
+	}
+	
+	public void terminateIfIsLastProcess() {
+		runningProcessesLock.acquire();
+		if (runningProcesses == 1) terminate();
+		runningProcessesLock.release();
+	}
 
 	/** Globally accessible reference to the synchronized console. */
 	public static SynchConsole console;
+	
+	private static Lock phyPageTableLock = null;
+	private static HashSet<Integer> freePages = new HashSet<Integer>();
+	
+	private static Lock runningProcessesLock = null;
+	private static int runningProcesses = 0;
 
 }
