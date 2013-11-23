@@ -407,33 +407,31 @@ public class UserProcess {
 		coff.close();
 	}
 	
-	//TODO: add it somewhere
-		private void closeAllFiles() {
-			// TODO: do I need the lock here; So far I don't think so;
-			lock.acquire();
-				for (int i = 0; i < fileTable.size(); ++i) {
-					OpenFile file = fileTable.get(i);
-					if (file != null) {
-						Lib.assertTrue(!freeFD.contains(i));
-						file.close();
-					}
+	private void closeAllFiles() {
+		// TODO: do I need the lock here; So far I don't think so;
+		lock.acquire();
+			for (int i = 0; i < fileTable.size(); ++i) {
+				OpenFile file = fileTable.get(i);
+				if (file != null) {
+					Lib.assertTrue(!freeFD.contains(i));
+					file.close();
 				}
+			}
 //				freeFD.clear();
-			lock.release();
-		}
-		
-		/**
-		 *  need to be added somewhere so that whenever the process exits
-		 *  (whether it exits normally, via the syscall exit(), or abnormally,
-		 *  due to an illegal operation).  finish() is called.
-		 */
-		private void clear(boolean exitnormal) {
-			// TODO so far only these need to be done.
-			closeAllFiles();
-			unloadSections();
-			status = exitnormal? exitNormally:exitAbnormally;
-			UserKernel.removeRunningProcesses();
-		}
+		lock.release();
+	}
+	
+	/**
+	 *  need to be added somewhere so that whenever the process exits
+	 *  (whether it exits normally, via the syscall exit(), or abnormally,
+	 *  due to an illegal operation).  finish() is called.
+	 */
+	private void clear(boolean exitnormal) {
+		closeAllFiles();
+		unloadSections();
+		status = exitnormal? exitNormally:exitAbnormally;
+		UserKernel.removeRunningProcesses();
+	}
 
 	/**
 	 * Initialize the processor's registers in preparation for running the
@@ -462,7 +460,6 @@ public class UserProcess {
 	 * Handle the halt() system call.
 	 */
 	private int handleHalt() {
-		// TODO: only by root
 		if (id == 0) {
 			clear(true);
 			Machine.halt();

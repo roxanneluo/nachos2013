@@ -10,6 +10,7 @@
 
 # you need to point to the right executables
 ARCHDIR = ../mips-x86.linux-xgcc
+# ARCHDIR = ~/program\ files/mips-x86.linux-xgcc
 GCCDIR = $(ARCHDIR)/
 
 ASFLAGS = -mips1
