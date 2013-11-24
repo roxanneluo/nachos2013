@@ -426,10 +426,10 @@ public class UserProcess {
 	 *  (whether it exits normally, via the syscall exit(), or abnormally,
 	 *  due to an illegal operation).  finish() is called.
 	 */
-	private void clear(boolean exitnormal) {
+	private void clear() {
 		closeAllFiles();
 		unloadSections();
-		status = exitnormal? exitNormally:exitAbnormally;
+		exited = true;
 		UserKernel.removeRunningProcesses();
 	}
 
@@ -461,12 +461,13 @@ public class UserProcess {
 	 */
 	private int handleHalt() {
 		if (id == 0) {
-			clear(true);
+			clear();
 			Machine.halt();
-		} else return 0;
+			return 0;
+		} else return -1;
 
-		Lib.assertNotReached("Machine.halt() did not halt machine!");
-		return 0;
+//		Lib.assertNotReached("Machine.halt() did not halt machine!");
+//		return -1;
 	}
 	
 //	private int byte2int(byte[] data) {
@@ -489,7 +490,7 @@ public class UserProcess {
 //		return data;
 //	}
 	private void handleExit(int status) {
-		clear(true);
+		clear();
 		exitStatus = status;
 		((UserKernel)Kernel.kernel).terminateIfIsLastProcess();
 		UThread.finish();
@@ -533,11 +534,13 @@ public class UserProcess {
 		// lockProcessTable(); new process, parent record the childID
 		processLock.acquire();
 		UserProcess child = newUserProcess();
-		children.put(child.id, child);
 		processLock.release();
 		
 		// execute
-		child.execute(fileName, args);
+		if (!child.execute(fileName, args)) return -1;
+		processLock.acquire();
+		children.put(child.id, child);
+		processLock.release();
 		return child.id;
 	}
 	
@@ -560,7 +563,10 @@ public class UserProcess {
 	 */
 	private int handleJoin(int processID, int statusVaddr) {
 		processLock.acquire();
-		if (!children.containsKey(processID)) return -1;
+		if (!children.containsKey(processID)) {
+			processLock.release();
+			return -1;
+		}
 		
 		// setTheExitStatusVaddr of the child process.
 		UserProcess child = children.get(processID);
@@ -569,27 +575,28 @@ public class UserProcess {
 		processLock.release();
 		
 //		System.out.println("child:"+child+", child thread:"+child.thread+", childStatus:"+child.getStatus());
-		if (!child.hasExited()) {
+		if (!child.exited && child.thread != null) {
 			child.thread.join();
 		}
 		
 		// readExitStatus, if -1 then abnormal return 0;
 		int childExitStatus = child.getExitStatus();
+//		System.out.println(childExitStatus);
 		byte[] data = Lib.bytesFromInt(childExitStatus);
 		if (writeVirtualMemory(statusVaddr, data) != intSize) return 0;	//FIXME: will this happen?
 		
-		if (child.hasExitedNormally()) return 1;
+		if (child.exitSuccess) return 1;
 		else return 0;
 	}
-	private boolean hasExited() {
-		if (status == exist && thread != null) return false;
-		return true;
-	}
-	private boolean hasExitedNormally() {
-		if (status == exitNormally) return true;
-		if (status == exist && thread == null) return true;
-		return false;
-	}
+//	private boolean hasExited() {
+//		if (status == exist && thread != null) return false;
+//		return true;
+//	}
+//	private boolean hasExitedNormally() {
+//		if (status == exitNormally) return true;
+//		if (status == exist && thread == null) return true;
+//		return false;
+//	}
 	private int getNewFileDescriptor() {
 		Lib.assertTrue(lock.isHeldByCurrentThread());
 		if (!freeFD.isEmpty()) {
@@ -602,9 +609,9 @@ public class UserProcess {
 	public int getExitStatus() {
 		return exitStatus;
 	}
-	public int getStatus() {
-		return status;
-	}
+//	public int getStatus() {
+//		return status;
+//	}
 	
 	public boolean validVaddr(int vaddr) {
 		if (vaddr < 0 || vaddr >= numPages*pageSize) return false;
@@ -890,6 +897,8 @@ public class UserProcess {
 			return handleUnlink(a0);
 
 		default:
+			exitSuccess = false;
+			handleExit(-1);
 			Lib.debug(dbgProcess, "Unknown syscall " + syscall);
 			Lib.assertNotReached("Unknown system call!");
 		}
@@ -917,23 +926,12 @@ public class UserProcess {
 			processor.writeRegister(Processor.regV0, result);
 			processor.advancePC();
 			break;
-		case Processor.exceptionAddressError:
-		case Processor.exceptionBusError:
-		case Processor.exceptionIllegalInstruction:
-		case Processor.exceptionOverflow:
-		case Processor.exceptionPageFault:
-		case Processor.exceptionReadOnly:
-		case Processor.exceptionTLBMiss:
-			System.out.println("unexpected exception cause:"+cause);
-			Lib.debug(dbgProcess, "SIGKILL exception: "
-					+ Processor.exceptionNames[cause] + " for process " + id);
-			clear(false);
-			UThread.finish();
-			break;
 		default:
+			exitSuccess = false;
+			handleExit(-1);
 			Lib.debug(dbgProcess, "Unexpected exception: "
 					+ Processor.exceptionNames[cause]);
-			Lib.assertNotReached("Unexpected exception");
+//			Lib.assertNotReached("Unexpected exception");
 		}
 	}
 
@@ -972,8 +970,8 @@ public class UserProcess {
 	 *  only after join will the parent disown the child, i.e. children.remove(child);
 	 */
 	private HashMap<Integer, UserProcess> children = new HashMap<Integer, UserProcess>();
-	protected final int exist = 1, exitNormally = 0, exitAbnormally = -1;
-	private int status = exist;
+	protected boolean exited = false;
+	protected boolean exitSuccess = true;
 	protected final int intSize = 4, byteSize = 1;
 	private int exitStatus = -1;
 }

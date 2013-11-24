@@ -9,5 +9,5 @@
 ./timeout3 -t 3 ./nachos.jar -[] conf/proj2.conf -- nachos.ag.CoffGrader -x test_illegal.coff -# output=test_illegal.out
 ./timeout3 -t 3 ./nachos.jar -[] conf/proj2.conf -- nachos.ag.CoffGrader -x test_memalloc.coff -# output=test_memalloc.out
 ./timeout3 -t 3 ./nachos.jar -[] conf/proj2.conf -- nachos.ag.CoffGrader -x test_memalloc2.coff
-./timeout3 -t 3 ./nachos.jar -[] conf/proj2.conf -- nachos.ag.CoffGrader -x test_memalloc3.coff -# output=test_memalloc3.out
+./timeout3 -t 60 ./nachos.jar -[] conf/proj2.conf -- nachos.ag.CoffGrader -x test_memalloc3.coff -# output=test_memalloc3.out
 
