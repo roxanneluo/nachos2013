@@ -147,4 +147,16 @@ public class RealFileSystem implements FileSystem
     //TODO implement this
     return false;
   }
+  
+  public int getFreeSize()
+  {
+    //TODO implement this
+    return 0;
+  }
+  
+  public int getSwapFileSectors()
+  {
+    //TODO implement this
+    return 0;
+  }
 }

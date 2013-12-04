@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.Random;
 import java.lang.System.*;
 
 import nachos.machine.Lib;
@@ -58,7 +57,6 @@ public class VMKernel extends UserKernel {
 	 */
 	public void terminate() {
 		// close and delete swap file
-//		System.out.println("swapTimes:"+swapTimes);
 		swapFile.close();
 		fileSystem.remove(swapFileName);
 		IPT.clear();
@@ -86,9 +84,6 @@ public class VMKernel extends UserKernel {
 			}
 		}
 		int index = chosenList.get(Lib.random(cnt));
-		if (index == lastTLB) 
-			index =  Lib.random(Machine.processor().getTLBSize());
-		lastTLB = index;
 		TranslationEntry chosen = Machine.processor().readTLBEntry(index);
 //		System.out.println("choose "+index+"in ("+cnt+")"+chosenList);
 		
@@ -127,33 +122,32 @@ public class VMKernel extends UserKernel {
 	// the page is previously in the ipt, swap out and swap in if need.
 	public static TranslationEntry getIPTEntry(int pid, int vpn) {
 		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
-		return IPT.get(new VMPage(pid, vpn));
-//		if (entry == null)
-//			entry = handlePageFault(page);
-//		else {
-//			print("after get "+new VMPage(pid, vpn)+" from IPT");
-//		}
-//		return entry;
+		VMPage page = new VMPage(pid, vpn);
+		
+		TranslationEntry entry = IPT.get(page);
+		if (entry == null)
+			entry = handlePageFault(page);
+		else {
+			print("after get "+new VMPage(pid, vpn)+" from IPT");
+		}
+		return entry;
 	}
 	
-//	public static TranslationEntry handlePageFault(VMPage page) {
-//		int ppn = obtainFreePPN(page.pid);
-//		return swapIn(ppn,page);
-//	}
+	public static TranslationEntry handlePageFault(VMPage page) {
+		int ppn = obtainFreePPN(page.pid);
+		return swapIn(ppn,page);
+	}
 	
-	//swap in the page if it is in swapFile; o.w. return null;
-	static TranslationEntry swapIn(int ppn, int pid, int vpn) {
+	private static TranslationEntry swapIn(int ppn, VMPage page) {
 		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
-		++swapTimes;
 		
-		VMPage page = new VMPage(pid, vpn);
+		freeSwapPages.remove(ppn);
 		SwapPage swapPage = swapTable.get(page);
-		if (swapPage == null) return null;
-		//ERROR: DON't NEED TO CHANGE FREESWAPPAGE
+		Lib.assertTrue(swapPage != null);
 		
 		Processor p = Machine.processor();
-		TranslationEntry entry = new TranslationEntry(page.vpn, ppn, true,swapPage.readOnly,true,false);
-		addIPTPage(pid, entry);
+		TranslationEntry entry = new TranslationEntry(page.vpn, ppn, true,swapPage.readOnly,false,false);
+		addPage(page, entry);
 		swapFile.read(swapPage.index*Processor.pageSize, p.getMemory(), Processor.makeAddress(ppn, 0), Processor.pageSize);
 		
 		
@@ -161,25 +155,25 @@ public class VMKernel extends UserKernel {
 		return entry;
 	}
 	
-//	
-//	/**
-//	 *  the page is not previously in ipt, so swap out if need, then add
-//	 * @param pid
-//	 * @param vpn
-//	 * @param isReadOnly
-//	 * @return the new page's ppn
-//	 */
-//	public static TranslationEntry loadPage(int pid, int vpn) {
-//		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
-//		
-//		VMPage page = new VMPage(pid, vpn);
-//		int ppn = obtainFreePPN(pid);
-//		TranslationEntry entry = new TranslationEntry(vpn, ppn, true, false,false, false); // TODO: I think because return reference, I can change readonly outside;
-//		addPage(page,entry);
-//
-//		print("after load "+page+"@"+ppn);
-//		return entry;
-//	}
+	
+	/**
+	 *  the page is not previously in ipt, so swap out if need, then add
+	 * @param pid
+	 * @param vpn
+	 * @param isReadOnly
+	 * @return the new page's ppn
+	 */
+	public static TranslationEntry loadPage(int pid, int vpn) {
+		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
+		
+		VMPage page = new VMPage(pid, vpn);
+		int ppn = obtainFreePPN(pid);
+		TranslationEntry entry = new TranslationEntry(vpn, ppn, true, false,false, false); // TODO: I think because return reference, I can change readonly outside;
+		addPage(page,entry);
+
+		print("after load "+page+"@"+ppn);
+		return entry;
+	}
 	
 	public static void unloadProcessPages(int pid, int totalPageNum) {
 		IPTLock.acquire();
@@ -218,7 +212,7 @@ public class VMKernel extends UserKernel {
 //		TLBLock.release();
 	}
 	// swap out if need
-	static int obtainFreePPN(int pid) {
+	private static int obtainFreePPN(int pid) {
 		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
 		int ppn = -1;
 		if (IPT.size() < pageNum) {
@@ -245,11 +239,6 @@ public class VMKernel extends UserKernel {
 					entry.used = false;
 				}
 			}
-			
-			//randswap
-			/*ppn = Lib.random(pageNum);
-			VMPage page = phyPages[ppn];
-			TranslationEntry entry = IPT.get(page);*/
 			// invalidate the corresponding  TLB
 			Processor p = Machine.processor();
 //			TLBLock.acquire();
@@ -268,17 +257,15 @@ public class VMKernel extends UserKernel {
 		clockPointer = (clockPointer+1)%pageNum;
 		return ppn;
 	}
-	static void addIPTPage(int pid, TranslationEntry entry) {
+	private static void addPage(VMPage page, TranslationEntry entry) {
 		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
-		VMPage page = new VMPage(pid, entry.vpn);
 		int ppn = entry.ppn;
 		Lib.assertTrue(0<=ppn && ppn<pageNum, "invalid ppn in addPage");
 		IPT.put(page, entry);
 		phyPages[ppn] = page;
-		print("after "+pid+" add "+entry);
 	}
 	public static void updateIPTByTLB(int pid, boolean clear) {
-//		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
+		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
 //		Lib.assertTrue(TLBLock.isHeldByCurrentThread());
 		// will updating the 4 tlb entries be interrupt??=
 		Processor p = Machine.processor();
@@ -298,7 +285,6 @@ public class VMKernel extends UserKernel {
 	
 	public static void swapOut(VMPage page, TranslationEntry entry) {
 		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
-		++swapTimes;
 		
 		Processor p = Machine.processor();
 		SwapPage swapPage = swapTable.get(page);
@@ -311,7 +297,6 @@ public class VMKernel extends UserKernel {
 			if (!freeSwapPages.isEmpty()) {
 				Iterator<Integer> iter = freeSwapPages.iterator();
 				index = iter.next();
-				iter.remove();
 			} else {
 				index = swapTable.size();
 			}
@@ -356,14 +341,12 @@ public class VMKernel extends UserKernel {
 	static Lock IPTLock = null;
 //	static Lock TLBLock = null;
 	
-	private static int lastTLB = -1;
 	private static int clockPointer = 0;
 	
 	private static final String swapFileName = "SWAP";
 	private static OpenFile swapFile = null;
 	private static Hashtable<VMPage, SwapPage> swapTable = new Hashtable<VMPage, SwapPage>();
 	private static HashSet<Integer> freeSwapPages = new HashSet<Integer>();
-	public static int swapTimes = 0;
 //	private static Lock swapLoc?k = null;
 	
 	

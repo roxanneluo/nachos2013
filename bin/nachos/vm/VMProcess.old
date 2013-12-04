@@ -34,18 +34,18 @@ public class VMProcess extends UserProcess {
 		Lib.debug(dbgVM, "====="+pid+" context switch=====");
 		Processor p = Machine.processor();
 		TranslationEntry entry = null;
-		for (int i = 0; i < p.getTLBSize(); ++i) {
-			entry = p.readTLBEntry(i);
-			if (entry == null || !entry.valid)
-				myTLB[i] = null;
-			else  {
-				myTLB[i] = entry.vpn;
-				VMKernel.updateIPTByTLBEntry(pid, entry);
-			}
-		}
+//		for (int i = 0; i < p.getTLBSize(); ++i) {
+//			entry = p.readTLBEntry(i);
+//			if (entry == null || !entry.valid)
+//				myTLB[i] = null;
+//			else  {
+//				myTLB[i] = entry.vpn;
+//				VMKernel.updateIPTByTLBEntry(pid, entry);
+//			}
+//		}
 ////		printTLB();
 //		VMKernel.TLBLock.acquire();
-//		VMKernel.updateIPTByTLB(pid, true);
+		VMKernel.updateIPTByTLB(pid, true);
 //		VMKernel.TLBLock.release();
 	}
 
@@ -57,13 +57,12 @@ public class VMProcess extends UserProcess {
 		// TODO: 
 		//super.restoreState();
 //		boolean status = Machine.interrupt().disable();
-		String tlb = myTLB[0]+","+myTLB[1]+","+myTLB[2]+","+myTLB[3];
-		Lib.debug(dbgVM, pid+" myTLB:"+tlb);
-		for (int i = 0; i < Machine.processor().getTLBSize(); ++i) {
-			if (myTLB[i] != null) 
-				VMKernel.setTLB(i,pid,myTLB[i]);
-			else VMKernel.setTLB(i, pid, -1);
-		}
+//		Lib.debug(dbgVM, pid+" myTLB:"+myTLB);
+//		for (int i = 0; i < Machine.processor().getTLBSize(); ++i) {
+//			if (myTLB[i] != null) 
+//				VMKernel.setTLB(i,pid,myTLB[i]);
+//			else VMKernel.setTLB(i, pid, -1);
+//		}
 		Lib.debug(dbgVM, "===========context switch back to "+pid+"===============");
 //		printTLB();
 //		VMKernel.print("");
@@ -79,6 +78,9 @@ public class VMProcess extends UserProcess {
 	protected boolean loadSections() {
 		//TODO: do nothing but simple checks, set all pages unloaded
 
+		loaded = new boolean[numPages];
+		for (int i = 0; i < numPages; ++i)
+			loaded[i] = false;
 		printTLB();
 		for (int i = 0; i < Machine.processor().getTLBSize(); ++i)
 			myTLB[i] = null;
@@ -91,12 +93,11 @@ public class VMProcess extends UserProcess {
 	 */
 	protected void unloadSections() {
 		VMKernel.invalidateTLB();
-		VMKernel.unloadProcessPages(pid, numPages);
+		VMKernel.unloadProcessPages(pid, numPages, loaded);
 		coff.close();
 	}
 	
 	protected int handleExecute(int fileNameVaddr, int argc, int argvVaddr) {
-		saveState();
 		VMKernel.updateIPTByTLB(pid, true);
 		return super.handleExecute(fileNameVaddr, argc, argvVaddr);
 	}
@@ -110,7 +111,7 @@ public class VMProcess extends UserProcess {
 	 *            the user exception that occurred.
 	 */
 	public void handleException(int cause) {
-		Lib.debug(dbgVM, "exception "+cause);
+		System.out.println("exception "+cause);
 		Processor processor = Machine.processor();
 
 		switch (cause) {
@@ -193,17 +194,13 @@ public class VMProcess extends UserProcess {
 	}
 	private TranslationEntry reqPage(int vpn) {
 		Lib.assertTrue(VMKernel.IPTLock.isHeldByCurrentThread());
-		TranslationEntry entry = VMKernel.getIPTEntry(pid, vpn);
-		if (entry != null) return entry;
-		
-		int ppn = VMKernel.obtainFreePPN(vpn);	// swap out if need
-		Lib.assertTrue(ppn >= 0 && ppn < Processor.pageSize);
-		entry = VMKernel.swapIn(ppn, pid, vpn);
-		if (entry != null) return entry;
+		if (loaded[vpn])
+			return VMKernel.getIPTEntry(pid, vpn);
 
 		//load new page
-		entry = new TranslationEntry(vpn,ppn,true,false,true,false);
-		VMKernel.addIPTPage(pid, entry);
+		loaded[vpn] = true;
+		TranslationEntry entry = VMKernel.loadPage(pid, vpn);
+		Lib.assertTrue(entry.ppn >= 0 && entry.ppn < Processor.pageSize);
 		
 		if (vpn < numPages-stackPages-argPages) {
 			Lib.debug(dbgVM, "====req coff page"+vpn+"====");
@@ -218,7 +215,7 @@ public class VMProcess extends UserProcess {
 							"sec["+index+"]("+coff.getNumSections()+")="+s+
 							"to "+entry);
 			
-			s.loadPage(vpn-s.getFirstVPN(),ppn);
+			s.loadPage(vpn-s.getFirstVPN(),entry.ppn);
 		} else {
 			Lib.debug(dbgVM,"====req stack page"+vpn+"====");
 		}
@@ -255,7 +252,7 @@ public class VMProcess extends UserProcess {
 	private static final char dbgProcess = 'a';
 	private static final char dbgVM = 'v';
 	
-//	private boolean[] loaded; 
+	private boolean[] loaded; 
 	protected final int argPages = Config.getInteger("Processor.numArgPages", 1);
 	private Integer[] myTLB = new Integer[Machine.processor().getTLBSize()];
 }

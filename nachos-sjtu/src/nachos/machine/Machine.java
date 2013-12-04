@@ -403,7 +403,7 @@ public final class Machine {
 
 	private static String[] args = null;
 
-	private static Stats stats = new Stats();
+	public static Stats stats = new Stats();
 
 	private static int numPhysPages = -1;
 	private static long randomSeed = 0;

@@ -2,7 +2,6 @@ package nachos.userprog;
 
 import nachos.machine.*;
 import nachos.threads.*;
-import nachos.vm.VMProcess;
 
 import java.io.EOFException;
 import java.util.ArrayList;
@@ -210,7 +209,7 @@ public class UserProcess {
 		return copyVirualMemory(vaddr, data, offset, length, false);
 	}
 //check kernel check final terminate, check wiki page
-	private int copyVirualMemory(int vaddr, byte[] data, int offset, int length, boolean read) {
+	protected int copyVirualMemory(int vaddr, byte[] data, int offset, int length, boolean read) {
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
 
@@ -267,7 +266,7 @@ public class UserProcess {
 	 *            the arguments to pass to the executable.
 	 * @return <tt>true</tt> if the executable was successfully loaded.
 	 */
-	private boolean load(String name, String[] args) {
+	protected boolean load(String name, String[] args) {
 		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
 
 		OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
@@ -286,6 +285,7 @@ public class UserProcess {
 
 		// make sure the sections are contiguous and start at page 0
 		numPages = 0;
+		Lib.debug(dbgProcess, "pid "+pid+":");
 		for (int s = 0; s < coff.getNumSections(); s++) {
 			CoffSection section = coff.getSection(s);
 			if (section.getFirstVPN() != numPages) {
@@ -293,6 +293,7 @@ public class UserProcess {
 				Lib.debug(dbgProcess, "\tfragmented executable");
 				return false;
 			}
+			Lib.debug(dbgProcess,"sec["+s+"]:fVPN="+section.getFirstVPN()+",len:"+section.getLength());
 			numPages += section.getLength();
 		}
 
@@ -460,7 +461,7 @@ public class UserProcess {
 	 * Handle the halt() system call.
 	 */
 	private int handleHalt() {
-		if (id == 0) {
+		if (pid == 0) {
 			clear();
 			Machine.halt();
 			return 0;
@@ -537,11 +538,11 @@ public class UserProcess {
 		processLock.release();
 		
 		// execute
-		if (!child.execute(fileName, args)) return -1;
+		if (!child.execute(fileName, args)) return -1;		//FIXED: once forgot to check this.
 		processLock.acquire();
-		children.put(child.id, child);
+		children.put(child.pid, child);
 		processLock.release();
-		return child.id;
+		return child.pid;
 	}
 	
 	/**
@@ -575,13 +576,13 @@ public class UserProcess {
 		processLock.release();
 		
 //		System.out.println("child:"+child+", child thread:"+child.thread+", childStatus:"+child.getStatus());
-		if (!child.exited && child.thread != null) {
+		if (!child.exited) {
 			child.thread.join();
 		}
 		
 		// readExitStatus, if -1 then abnormal return 0;
 		int childExitStatus = child.getExitStatus();
-//		System.out.println(childExitStatus);
+		Lib.debug(dbgProcess,(new Integer(childExitStatus)).toString());
 		byte[] data = Lib.bytesFromInt(childExitStatus);
 		if (writeVirtualMemory(statusVaddr, data) != intSize) return 0;	//FIXME: will this happen?
 		
@@ -872,7 +873,7 @@ public class UserProcess {
 	 * @return the value to be returned to the user.
 	 */
 	public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
-//		System.out.println("syscall:"+syscall);
+		Lib.debug(dbgProcess,"syscall:"+new Integer(syscall));
 		switch (syscall) {
 		case syscallHalt:
 			return handleHalt();
@@ -915,7 +916,6 @@ public class UserProcess {
 	 */
 	public void handleException(int cause) {
 		Processor processor = Machine.processor();
-
 		switch (cause) {
 		case Processor.exceptionSyscall:
 			int result = handleSyscall(processor.readRegister(Processor.regV0),
@@ -926,11 +926,14 @@ public class UserProcess {
 			processor.writeRegister(Processor.regV0, result);
 			processor.advancePC();
 			break;
+		case Processor.exceptionReadOnly:
+			Lib.debug(dbgProcess, "=============try to write readonly vaddr:"
+					+processor.readRegister(Processor.regBadVAddr)+"===============");
 		default:
-			exitSuccess = false;
-			handleExit(-1);
 			Lib.debug(dbgProcess, "Unexpected exception: "
 					+ Processor.exceptionNames[cause]);
+			exitSuccess = false;
+			handleExit(-1);
 //			Lib.assertNotReached("Unexpected exception");
 		}
 	}
@@ -960,7 +963,7 @@ public class UserProcess {
 	private TreeSet<Integer> freeFD = new TreeSet<Integer>();	//FD stands for file descriptor
 	private Lock lock = new Lock();
 	private static int numCreated = 0;
-	private int id = numCreated++;
+	protected int pid = numCreated++;
 	
 	//for phase2 multiprogramming handle the processes
 	UThread thread = null;

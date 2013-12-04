@@ -159,7 +159,7 @@ public class UserKernel extends ThreadedKernel {
 	
 	public void terminateIfIsLastProcess() {
 		runningProcessesLock.acquire();
-		if (runningProcesses == 0) terminate();
+		if (runningProcesses  == 0) terminate();	//FIXED: once runningProcesses == 0
 		runningProcessesLock.release();
 	}
 
