@@ -48,6 +48,6 @@ int main() {
   printf("seems ok.\n");
 
   done();
-
+	printf("after done\n");
   return 0;
 }

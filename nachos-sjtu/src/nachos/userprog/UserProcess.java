@@ -785,6 +785,7 @@ public class UserProcess {
 	 * it can also be the case where the disk is full, or the file can't be written
 	 */
 	private int handleWrite(int fd, int bufferVaddr, int size) {
+//		System.out.println("handle write");
 		try {
 			OpenFile file = getFile(fd);
 			if (file == null) return -1;

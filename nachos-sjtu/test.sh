@@ -1,0 +1,40 @@
+#!/bin/bash
+echo "*** TEST vm_echo"
+nachos="./nachos.jar"
+
+time timeout 3s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_echo.coff -# output=vm_echo.out
+echo "" # empty line
+
+echo "*** TEST vm_lazyload"
+time timeout 3s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_lazyload.coff -# swapFile=SWAP
+echo "" # empty line
+
+echo "*** TEST vm_matrix"
+time timeout 30s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_matrix.coff -# output=vm_matrix.out
+echo "" # empty line
+
+echo "*** TEST vm_matrix2"
+time timeout 120s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_matrix2.coff -# output=vm_matrix.out,swapFile=SWAP
+echo "" # empty line
+
+echo "*** TEST vm_matrix(8 pages)"
+time timeout 120s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_matrix.coff -# output=vm_matrix.out
+echo "" # empty line
+
+echo "*** TEST vm_matrix2(8 pages)"
+time timeout 180s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_matrix2.coff -# output=vm_matrix.out,swapFile=SWAP
+echo "" # empty line
+
+echo "*** TEST vm_reuse"
+time timeout 10s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_reuse.coff -# coffPar0=10,swapFile=SWAP
+echo "" # empty line
+
+echo "*** TEST vm_skipfill"
+time timeout 60s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_skipfill.coff -# coffPar0=5,coffPar1=32,coffPar2=6
+echo "" # empty line
+
+echo "*** TEST vm_recursion"
+time timeout 5s $nachos -[] conf/proj3.conf -- nachos.ag.VMGrader -x vm_recursion.coff -# coffPar0=20,coffPar1=6,swapFile=SWAP
+echo "" # empty line
+
+

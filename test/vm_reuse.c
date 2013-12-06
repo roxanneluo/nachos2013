@@ -12,14 +12,13 @@ void run_child() {
 }
 
 int main() {
-  assertTrueWMsg(phyPages() <= 100, "too many pages to run this test.");
+  assertTrueWMsg(phyPages() <= 4, "too many pages to run this test.");
   int times = readParameter(0);
   int i;
   run_child();
   int swapSize = getSwapSize();
   assertTrue(swapSize > 0);
   for (i = 0; i < times; ++i) {
-	printf("times = %d, i =  %d\n",times, i);
     run_child();
     assertTrueWMsg(getSwapSize() <= swapSize + 8 * PAGE_SIZE, "fail: used too many swap space");
   }

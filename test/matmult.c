@@ -17,8 +17,8 @@ int C[Dim][Dim];
 int
 main()
 {
-	printf("initialize the matrix\n");
     int i, j, k;
+
     for (i = 0; i < Dim; i++)		/* first initialize the matrices */
 	for (j = 0; j < Dim; j++) {
 	     A[i][j] = i;
@@ -26,12 +26,11 @@ main()
 	     C[i][j] = 0;
 	}
 
-	printf("start to calculate the matrix\n");
     for (i = 0; i < Dim; i++)		/* then multiply them together */
 	for (j = 0; j < Dim; j++)
             for (k = 0; k < Dim; k++)
 		 C[i][j] += A[i][k] * B[k][j];
 
-    printf("C[%d][%d] = %d\n", Dim-1, Dim-1, C[Dim-1][Dim-1]);
+    printf("C[%d][%d] = %d\r\n", Dim-1, Dim-1, C[Dim-1][Dim-1]);
     return (C[Dim-1][Dim-1]);		/* and then we're done */
 }
