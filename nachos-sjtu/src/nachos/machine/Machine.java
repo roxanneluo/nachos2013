@@ -7,6 +7,7 @@ import java.io.File;
 import nachos.ag.AutoGrader;
 import nachos.security.NachosSecurityManager;
 import nachos.security.Privilege;
+import nachos.vm.VMKernel;
 
 /**
  * The master class of the simulated machine. Processes command line arguments,
@@ -97,6 +98,7 @@ public final class Machine {
 	 */
 	public static void halt() {
 		System.out.print("Machine halting!\n\n");
+		System.out.println("swapSize: "+VMKernel.swapSize);
 		stats.print();
 		terminate();
 	}
@@ -403,7 +405,7 @@ public final class Machine {
 
 	private static String[] args = null;
 
-	private static Stats stats = new Stats();
+	public static Stats stats = new Stats();
 
 	private static int numPhysPages = -1;
 	private static long randomSeed = 0;

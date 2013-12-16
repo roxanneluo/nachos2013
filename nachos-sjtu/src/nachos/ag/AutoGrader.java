@@ -5,6 +5,7 @@ package nachos.ag;
 import nachos.machine.*;
 import nachos.security.*;
 import nachos.threads.*;
+import nachos.vm.VMKernel;
 
 import java.util.Hashtable;
 import java.util.StringTokenizer;
@@ -132,6 +133,9 @@ public class AutoGrader {
 
 	void done() {
 		System.out.print("\nsuccess\n");
+		System.out.println("swapTimes:"+VMKernel.swapTimes);
+		System.out.println("swapSize:"+VMKernel.maxSwapSize);
+		Machine.stats.print();
 		privilege.exit(162);
 	}
 

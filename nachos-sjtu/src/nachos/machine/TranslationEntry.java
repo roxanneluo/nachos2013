@@ -83,4 +83,9 @@ public final class TranslationEntry {
 	 * user program.
 	 */
 	public boolean dirty;
+	
+	public String toString() {
+		if (!valid) return "invalid";
+		else return "<ppn:"+ppn+",vpn:"+vpn+",r:"+readOnly+",u:"+used+",d:"+dirty+">";	
+	}
 }

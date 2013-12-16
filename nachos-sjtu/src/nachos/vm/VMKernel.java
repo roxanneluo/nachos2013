@@ -24,21 +24,24 @@ public class VMKernel extends UserKernel {
 	 */
 	public VMKernel() {
 		super();
+		swapFileName = "SWAP";
 	}
 
 	/**
 	 * Initialize this kernel.
 	 */
 	public void initialize(String[] args) {
+		initExceptSwap(args);
+		swapFile = fileSystem.open(swapFileName, true);
+	}
+	protected void initExceptSwap(String[] args) {
 		super.initialize(args);
 		IPTLock = new Lock();
 //		TLBLock = new Lock();
 		phyPages = new VMPage[pageNum];
 		for (int i = 0; i < pageNum; ++i) phyPages[i] = null;
 		// create and open swap file
-		swapFile = fileSystem.open(swapFileName, true);
 	}
-
 	/**
 	 * Test this kernel.
 	 */
@@ -201,6 +204,7 @@ public class VMKernel extends UserKernel {
 		Lib.debug(dbgVM, "remove "+page+"="+index);
 		freeSwapPages.add(index);
 		// do not need to clear the corresponding page in the swap file
+		--swapSize;
 	}
 	private static void IPTRemovePage(VMPage page) {
 		Lib.assertTrue(IPTLock.isHeldByCurrentThread());
@@ -315,6 +319,7 @@ public class VMKernel extends UserKernel {
 			} else {
 				index = swapTable.size();
 			}
+			++swapSize; maxSwapSize = Math.max(swapSize, maxSwapSize);
 			swapTable.put(page, new SwapPage(index, entry.readOnly));
 		} else {
 			index = swapPage.index;
@@ -346,6 +351,10 @@ public class VMKernel extends UserKernel {
 //		Lib.debug(dbgVM, "iptlock "+IPTLock.isHeldByCurrentThread());
 //		Lib.debug(dbgVM, "tlblock "+TLBLock.isHeldByCurrentThread());
 	}
+	
+	public static String getSwapFileName() {
+		return swapFileName;
+	}
 
 	private static final char dbgVM = 'v';
 
@@ -359,11 +368,13 @@ public class VMKernel extends UserKernel {
 	private static int lastTLB = -1;
 	private static int clockPointer = 0;
 	
-	private static final String swapFileName = "SWAP";
-	private static OpenFile swapFile = null;
+	protected static String swapFileName;
+	protected static OpenFile swapFile = null;
 	private static Hashtable<VMPage, SwapPage> swapTable = new Hashtable<VMPage, SwapPage>();
 	private static HashSet<Integer> freeSwapPages = new HashSet<Integer>();
 	public static int swapTimes = 0;
+	public static int maxSwapSize = 0;
+	public static int swapSize = 0;
 //	private static Lock swapLoc?k = null;
 	
 	

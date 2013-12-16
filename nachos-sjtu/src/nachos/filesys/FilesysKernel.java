@@ -17,14 +17,16 @@ public class FilesysKernel extends VMKernel
   public FilesysKernel ()
   {
     super();
+    swapFileName = "/SWAP";
   }
   
   public void initialize (String[] args)
   {
-    super.initialize(args);
-    boolean format = Config.getBoolean("FilesysKernel.format");
-    fileSystem = realFileSystem = new RealFileSystem();
-    realFileSystem.init(format);
+	  super.initExceptSwap(args);
+	  boolean format = Config.getBoolean("FilesysKernel.format");
+	  fileSystem = realFileSystem = new RealFileSystem();
+	  realFileSystem.init(format);
+	  swapFile = fileSystem.open(swapFileName, true);
   }
   
   public void selfTest ()

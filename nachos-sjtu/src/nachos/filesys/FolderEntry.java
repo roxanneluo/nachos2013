@@ -7,9 +7,13 @@ package nachos.filesys;
  * */
 class FolderEntry
 {
-  /** the file name */
-  String name;
+	/** the file name */
+	String name;
   
-  /** the sector number of the inode */
-  int addr;
+	/** the sector number of the inode */
+	int addr;
+	FolderEntry(String name, int addr) {
+		this.name = name;
+		this.addr = addr;
+	}
 }

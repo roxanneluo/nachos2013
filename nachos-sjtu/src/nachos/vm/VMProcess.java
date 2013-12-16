@@ -125,6 +125,7 @@ public class VMProcess extends UserProcess {
 	
 	@Override
 	protected int copyVirualMemory(int vaddr, byte[] data, int offset, int length, boolean read) {
+		//System.out.println("offset:"+offset+",length:"+length+",data.len:"+data.length);
 		Lib.assertTrue(offset >= 0 && length >= 0
 				&& offset + length <= data.length);
 

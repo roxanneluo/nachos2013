@@ -1,5 +1,6 @@
 package nachos.userprog;
 
+import nachos.filesys.FileStat;
 import nachos.machine.*;
 import nachos.threads.*;
 
@@ -619,7 +620,7 @@ public class UserProcess {
 		return true;
 	}
 	
-	private int addFile(OpenFile file) {
+	protected int addFile(OpenFile file) {
 		if (file == null) return -1;
 		lock.acquire();
 		int fd = getNewFileDescriptor();	// this and the next line must be done atomically
@@ -637,15 +638,15 @@ public class UserProcess {
 	 *
 	 * Returns the new file descriptor, or -1 if an error occurred.
 	 */
-	private int handleCreateOpen(int nameVaddr, boolean create) {
+	protected int handleCreateOpen(int nameVaddr, boolean create) {
 		try {
 			String fileName = readVirtualMemoryString(nameVaddr, maxFileNameLength);
 			if (fileName == null) return -1;
 			OpenFile file = UserKernel.fileSystem.open(fileName, create);
 			return addFile(file);
 		} catch (Exception e) {
-//			System.out.println(e);
-//			e.printStackTrace();
+			System.out.println(e);
+			e.printStackTrace();
 			// I don't think it will ever reach here;
 			if (lock.isHeldByCurrentThread()) lock.release();
 			return -1;
@@ -670,7 +671,7 @@ public class UserProcess {
 	 *
 	 * Returns 0 on success, or -1 if an error occurred.
 	 */
-	private int handleClose(int fd) {
+	protected int handleClose(int fd) {
 		try {
 			OpenFile file = getFile(fd);
 			if (file == null) return -1;
@@ -706,7 +707,7 @@ public class UserProcess {
 	 * o.w. It's not opened by this process, other process should handle the open and close itself
 	 */
 	
-	private int handleUnlink(int nameVaddr) {
+	protected int handleUnlink(int nameVaddr) {
 		try {
 			String fileName = readVirtualMemoryString(nameVaddr, maxFileNameLength);
 			if (UserKernel.fileSystem.remove(fileName)) return 0;
@@ -716,7 +717,7 @@ public class UserProcess {
 		} 
 	}
 	
-	private boolean validFD(int fd) {
+	protected boolean validFD(int fd) {
 		Lib.assertTrue(lock.isHeldByCurrentThread());
 		
 		if (fd < 0) return false;
@@ -732,7 +733,7 @@ public class UserProcess {
 	}
 	
 	
-	private OpenFile getFile(int fd) {
+	protected OpenFile getFile(int fd) {
 		lock.acquire();
 		OpenFile file = null;
 		if (validFD(fd)) 
@@ -752,13 +753,14 @@ public class UserProcess {
 	 * @param size
 	 * @return
 	 */
-	private int handleRead(int fd, int bufferVaddr, int size) {
+	protected int handleRead(int fd, int bufferVaddr, int size) {
 		try {
 			OpenFile file = getFile(fd);
 			if (file == null) return -1;
 			
 			byte data[] = new byte[size];
 			int readCnt = file.read(data, 0, size);
+			if (readCnt < 0) return -1;
 			return writeVirtualMemory(bufferVaddr, data, 0, readCnt);
 		} catch (Exception e) {
 			if (lock.isHeldByCurrentThread()) lock.release();
@@ -784,7 +786,7 @@ public class UserProcess {
 	 * if a network stream has already been terminated by the remote host. I think
 	 * it can also be the case where the disk is full, or the file can't be written
 	 */
-	private int handleWrite(int fd, int bufferVaddr, int size) {
+	protected int handleWrite(int fd, int bufferVaddr, int size) {
 //		System.out.println("handle write");
 		try {
 			OpenFile file = getFile(fd);
@@ -797,15 +799,24 @@ public class UserProcess {
 			if (writeCnt < size) return -1;
 			return writeCnt;
 		} catch (Exception e) {
+			e.printStackTrace();
 			if (lock.isHeldByCurrentThread()) lock.release();
 			return -1;
 		} 		
 	}
 
-	private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2,
-			syscallJoin = 3, syscallCreate = 4, syscallOpen = 5,
-			syscallRead = 6, syscallWrite = 7, syscallClose = 8,
-			syscallUnlink = 9;
+	protected static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2,
+			syscallJoin = 3, syscallCreate = 4;
+
+	protected static final int syscallOpen = 5;
+
+	protected static final int syscallRead = 6;
+
+	protected static final int syscallWrite = 7;
+
+	protected static final int syscallClose = 8;
+
+	protected static final int syscallUnlink = 9;
 
 	/**
 	 * Handle a syscall exception. Called by <tt>handleException()</tt>. The
@@ -958,11 +969,11 @@ public class UserProcess {
 	private static final char dbgProcess = 'a';
 	
 	//for phase2 pagetable
-	private static final int maxFileNameLength = 256;
+	protected static final int maxFileNameLength = FileStat.FILE_NAME_MAX_LEN;
 //	private static final int maxFileNum = 16;
-	private ArrayList<OpenFile> fileTable = new ArrayList<OpenFile>();
-	private TreeSet<Integer> freeFD = new TreeSet<Integer>();	//FD stands for file descriptor
-	private Lock lock = new Lock();
+	protected ArrayList<OpenFile> fileTable = new ArrayList<OpenFile>();
+	protected TreeSet<Integer> freeFD = new TreeSet<Integer>();	//FD stands for file descriptor
+	protected Lock lock = new Lock();
 	private static int numCreated = 0;
 	protected int pid = numCreated++;
 	

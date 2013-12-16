@@ -1,0 +1,52 @@
+		/*static PathResult getResult(String absName) {
+			PathResult result = new PathResult();
+			
+			LinkedList<String> path = new LinkedList<String>();
+			char splitor = PathSplitor.toCharArray()[0];
+			int i, lastIndex;
+			for (i = absName.length()-1; i>=0; --i){
+				if (absName.charAt(i) == splitor){
+					result.name = absName.substring(i+1, absName.length());
+					break;
+				}
+			}
+			if (i < 0) {
+				result.name = absName.substring(0, absName.length());
+				result.parentFolder = null;
+				result.success = true;
+				return result;
+			}
+			
+			lastIndex = i;	//index of last splitor
+			String lastFolderName = null, curFolderAbsName = absName.substring(0,lastIndex);
+			Folder folder = null;
+			if (Folder.exist(curFolderAbsName)) {
+				result.parentFolder = Folder.getFolder(curFolderAbsName, null, true);
+				result.success = true;
+				return result;
+			} 
+
+			
+			for (; i>=0; --i) {
+				if (absName.charAt(i) != splitor) continue;
+				lastFolderName = absName.substring(i+1,lastIndex);
+				path.addFirst(lastFolderName);
+				curFolderAbsName = absName.substring(0,i);
+				if (Folder.exist(curFolderAbsName)) {
+					folder = Folder.getFolder(curFolderAbsName, null, true);
+					break;
+				}
+			}
+			Lib.assertTrue(folder != null);
+			String curFolderName;
+			Iterator<String> iter = path.iterator();
+			INode inode;
+			while(iter.hasNext()) {
+				curFolderName = iter.next();
+				Integer addr = folder.getFileSec(curFolderName);
+				if (addr == null) return result; 
+				inode = INode.getINode(addr, INode.TYPE_FOLDER, true);
+				if (inode == null) return result;	// when the inode is not a folder
+				folder = Folder.getFolder(, inode, load)
+			}
+		}*/
