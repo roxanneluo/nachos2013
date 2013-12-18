@@ -218,9 +218,6 @@ public class CoffSection {
 		Arrays.fill(memory, paddr + initlen, paddr + pageSize, (byte) 0);
 	}
 
-	public String toString() {
-		return "<firstVPN:"+firstVPN+",len:"+numPages+",readOnly:"+readOnly+">";
-	}
 	/** The COFF object to which this section belongs. */
 	protected Coff coff;
 	/** The COFF name of this section. */
